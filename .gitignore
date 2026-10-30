@@ -1,0 +1,15 @@
+target/
+*.class
+*.log
+
+# Credenciales: nunca subir la wallet de Oracle ni archivos .env
+wallet/
+Wallet_*/
+*.zip
+.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store

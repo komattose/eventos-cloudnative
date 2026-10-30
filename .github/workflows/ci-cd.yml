@@ -1,0 +1,84 @@
+name: CI/CD - Build, Docker Hub y despliegue en EC2
+
+# Se ejecuta en cada push a main (y se puede lanzar a mano desde la pestaña Actions)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/eventos
+  CONTAINER_NAME: eventos
+
+jobs:
+  build-test:
+    name: Compilar y ejecutar pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Pruebas automáticas y empaquetado
+        run: mvn -B verify
+
+  docker:
+    name: Construir y publicar imagen en Docker Hub
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    name: Desplegar en EC2
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizar el contenedor en la instancia EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          CONTAINER: ${{ env.CONTAINER_NAME }}
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE,CONTAINER,DB_URL,DB_USERNAME,DB_PASSWORD
+          script: |
+            set -e
+            docker pull "$IMAGE"
+            docker rm -f "$CONTAINER" 2>/dev/null || true
+            # La wallet de Oracle Cloud debe estar descomprimida en ~/wallet dentro de la EC2
+            docker run -d --name "$CONTAINER" --restart unless-stopped -p 8080:8080 \
+              -v "$HOME/wallet:/app/wallet:ro" \
+              -e DB_URL="$DB_URL" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" \
+              "$IMAGE"
+            docker image prune -f
+            # Espera a que la aplicación responda antes de dar el despliegue por bueno
+            for i in $(seq 1 30); do
+              if curl -fs http://localhost:8080/actuator/health > /dev/null; then echo "Aplicación desplegada"; exit 0; fi
+              sleep 5
+            done
+            echo "La aplicación no respondió a tiempo"; docker logs --tail 100 "$CONTAINER"; exit 1

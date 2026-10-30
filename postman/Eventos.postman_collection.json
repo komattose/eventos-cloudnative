@@ -1,0 +1,119 @@
+{
+  "info": {
+    "name": "Eventos - Cloud Native Semana 1",
+    "description": "Pruebas de los microservicios de eventos y compra de entradas. Cambia la variable baseUrl por la IP pública de la EC2 (http://IP:8080) para probar el despliegue.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "eventoId", "value": "1" },
+    { "key": "numeroResumen", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "1. Crear evento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+              "const evento = pm.response.json();",
+              "pm.test('Devuelve el id del evento', () => pm.expect(evento.id).to.be.a('number'));",
+              "pm.collectionVariables.set('eventoId', evento.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Concierto Rock en el Parque\",\n  \"fecha\": \"2026-12-15\",\n  \"precioEntrada\": 25000\n}"
+        },
+        "url": "{{baseUrl}}/api/eventos"
+      }
+    },
+    {
+      "name": "2. Listar eventos disponibles",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Cada evento trae nombre, fecha y precio', () => {",
+              "  pm.response.json().forEach(e => pm.expect(e).to.include.keys('nombre', 'fecha', 'precioEntrada'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/eventos" }
+    },
+    {
+      "name": "3. Comprar entradas",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+              "const r = pm.response.json();",
+              "pm.test('El total es precio unitario x cantidad', () => pm.expect(r.precioTotal).to.eql(r.precioUnitario * r.cantidadEntradas));",
+              "pm.collectionVariables.set('numeroResumen', r.numeroResumen);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventoId\": {{eventoId}},\n  \"cantidadEntradas\": 3\n}"
+        },
+        "url": "{{baseUrl}}/api/compras"
+      }
+    },
+    {
+      "name": "4. Consultar resumen de compra",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}" }
+    },
+    {
+      "name": "5. Error: evento con datos inválidos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"\",\n  \"fecha\": \"2020-01-01\",\n  \"precioEntrada\": -10\n}" },
+        "url": "{{baseUrl}}/api/eventos"
+      }
+    },
+    {
+      "name": "6. Health check (despliegue)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" }
+    }
+  ]
+}

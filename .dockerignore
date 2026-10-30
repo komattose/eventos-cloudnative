@@ -1,0 +1,9 @@
+target/
+wallet/
+.git/
+.github/
+.idea/
+.vscode/
+*.iml
+postman/
+docs/
