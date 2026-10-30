@@ -1,9 +1,25 @@
 # Eventos – Desarrollo Cloud Native (CDY2204)
 
 Microservicio Spring Boot para el registro y la venta de entradas de una empresa de eventos.
-Experiencia 1 – Semana 1: *Desplegando aplicaciones en la nube*. Grupo 20.
+Experiencia 1 – Semana 1: *Desplegando aplicaciones en la nube* y Semana 2: *Almacenando archivos en la nube*. Grupo 20.
 
-## Requerimientos y cómo se cumplen
+## Requerimientos de la semana 2 (AWS S3)
+
+| Requerimiento | Implementación |
+|---|---|
+| Generar el resumen de compra como archivo físico que se pueda guardar en el computador | `GET /api/compras/{n}/resumen/pdf` → descarga `resumen-compra-{n}.pdf` |
+| Subir el resumen a un bucket S3, en una carpeta con el número del resumen | `POST /api/compras/{n}/resumen/s3` → objeto `{n}/resumen-compra-{n}.pdf` |
+| Modificar el archivo en caso de error | `PUT /api/compras/{n}/resumen/s3` (PDF corregido en el campo `archivo`, o se regenera si no se envía) |
+| Descargar el archivo | `GET /api/compras/{n}/resumen/s3` |
+| Borrar el archivo | `DELETE /api/compras/{n}/resumen/s3` (valida que exista; si no, 404) |
+
+Endpoints de apoyo: `GET /api/compras/{n}/resumen/s3/info` (bucket, carpeta, clave, tamaño y fecha) y `GET /api/compras/{n}/resumen/s3/carpeta` (objetos dentro de la carpeta del resumen).
+
+Capas: `StorageConfig` (cliente S3 y credenciales) → `S3Repository` (operaciones sobre el bucket) → `ResumenS3Service` (reglas: carpeta por número de resumen, validar existencia, solo PDF) → `ResumenArchivoController`. `ResumenPdfService` genera el PDF con OpenPDF.
+
+Variables de entorno: `S3_BUCKET`, `AWS_REGION` (por defecto `us-east-1`) y las credenciales de AWS Academy `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`. Si las credenciales no se entregan, se usa el rol de la instancia EC2 (LabRole).
+
+## Requerimientos de la semana 1
 
 | Requerimiento | Implementación |
 |---|---|
@@ -21,6 +37,11 @@ Experiencia 1 – Semana 1: *Desplegando aplicaciones en la nube*. Grupo 20.
 | POST | `/api/eventos` | Crea un evento |
 | POST | `/api/compras` | Compra entradas y devuelve el resumen de compra |
 | GET | `/api/compras/{numeroResumen}` | Consulta un resumen de compra |
+| GET | `/api/compras/{n}/resumen/pdf` | Genera el resumen en PDF para descargarlo |
+| POST | `/api/compras/{n}/resumen/s3` | Sube el resumen a S3 en la carpeta `{n}/` |
+| PUT | `/api/compras/{n}/resumen/s3` | Modifica el archivo en S3 |
+| GET | `/api/compras/{n}/resumen/s3` | Descarga el archivo desde S3 |
+| DELETE | `/api/compras/{n}/resumen/s3` | Borra el archivo de S3 |
 | GET | `/actuator/health` | Estado de la aplicación |
 
 Ejemplo de compra:
@@ -101,6 +122,11 @@ Cada push a `main` ejecuta tres etapas:
 | `DB_URL` | `jdbc:oracle:thin:@<nombre_bd>_high?TNS_ADMIN=/app/wallet` |
 | `DB_USERNAME` | Usuario de la base de datos |
 | `DB_PASSWORD` | Contraseña de la base de datos |
+| `S3_BUCKET` | Nombre del bucket S3 donde se guardan los resúmenes |
+| `AWS_ACCESS_KEY_ID` | AWS Academy → *AWS Details* (cambia en cada sesión del laboratorio) |
+| `AWS_SECRET_ACCESS_KEY` | AWS Academy → *AWS Details* |
+| `AWS_SESSION_TOKEN` | AWS Academy → *AWS Details* |
+| `AWS_REGION` | Opcional, por defecto `us-east-1` |
 
 ### Preparar la instancia EC2 (una sola vez)
 

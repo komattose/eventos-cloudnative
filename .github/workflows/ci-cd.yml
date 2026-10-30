@@ -61,19 +61,40 @@ jobs:
           DB_URL: ${{ secrets.DB_URL }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: IMAGE,CONTAINER,DB_URL,DB_USERNAME,DB_PASSWORD
+          envs: IMAGE,CONTAINER,DB_URL,DB_USERNAME,DB_PASSWORD,S3_BUCKET,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN
           script: |
             set -e
             docker pull "$IMAGE"
             docker rm -f "$CONTAINER" 2>/dev/null || true
+            # Variables para el contenedor en un archivo temporal (no quedan en el historial de comandos)
+            ENV_FILE=$(mktemp)
+            trap 'rm -f "$ENV_FILE"' EXIT
+            {
+              echo "DB_URL=$DB_URL"
+              echo "DB_USERNAME=$DB_USERNAME"
+              echo "DB_PASSWORD=$DB_PASSWORD"
+              echo "S3_BUCKET=$S3_BUCKET"
+              echo "AWS_REGION=$AWS_REGION"
+              # Credenciales de AWS Academy; si no hay, la app usa el rol de la instancia (LabRole)
+              if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+                echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
+                echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
+                echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN"
+              fi
+            } > "$ENV_FILE"
             # La wallet de Oracle Cloud debe estar descomprimida en ~/wallet dentro de la EC2
             docker run -d --name "$CONTAINER" --restart unless-stopped -p 8080:8080 \
               -v "$HOME/wallet:/app/wallet:ro" \
-              -e DB_URL="$DB_URL" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" \
+              --env-file "$ENV_FILE" \
               "$IMAGE"
             docker image prune -f
             # Espera a que la aplicación responda antes de dar el despliegue por bueno

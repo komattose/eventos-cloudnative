@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Eventos - Cloud Native Semana 1",
-    "description": "Pruebas de los microservicios de eventos y compra de entradas. Cambia la variable baseUrl por la IP pública de la EC2 (http://IP:8080) para probar el despliegue.",
+    "name": "Eventos - Cloud Native",
+    "description": "Pruebas de los microservicios de eventos, compra de entradas (semana 1) y archivo del resumen de compra en AWS S3 (semana 2). Selecciona el entorno 'Eventos - EC2 (AWS)' o 'Eventos - Local' arriba a la derecha.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,109 +11,237 @@
   ],
   "item": [
     {
-      "name": "1. Crear evento",
-      "event": [
+      "name": "Semana 1 - Eventos y compras",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
-              "const evento = pm.response.json();",
-              "pm.test('Devuelve el id del evento', () => pm.expect(evento.id).to.be.a('number'));",
-              "pm.collectionVariables.set('eventoId', evento.id);"
-            ]
+          "name": "1. Crear evento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "const evento = pm.response.json();",
+                  "pm.test('Devuelve el id del evento', () => pm.expect(evento.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('eventoId', evento.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Concierto Rock en el Parque\",\n  \"fecha\": \"2026-12-15\",\n  \"precioEntrada\": 25000\n}"
+            },
+            "url": "{{baseUrl}}/api/eventos"
           }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nombre\": \"Concierto Rock en el Parque\",\n  \"fecha\": \"2026-12-15\",\n  \"precioEntrada\": 25000\n}"
         },
-        "url": "{{baseUrl}}/api/eventos"
-      }
-    },
-    {
-      "name": "2. Listar eventos disponibles",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
-              "pm.test('Cada evento trae nombre, fecha y precio', () => {",
-              "  pm.response.json().forEach(e => pm.expect(e).to.include.keys('nombre', 'fecha', 'precioEntrada'));",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": { "method": "GET", "url": "{{baseUrl}}/api/eventos" }
-    },
-    {
-      "name": "3. Comprar entradas",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
-              "const r = pm.response.json();",
-              "pm.test('El total es precio unitario x cantidad', () => pm.expect(r.precioTotal).to.eql(r.precioUnitario * r.cantidadEntradas));",
-              "pm.collectionVariables.set('numeroResumen', r.numeroResumen);"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"eventoId\": {{eventoId}},\n  \"cantidadEntradas\": 3\n}"
+          "name": "2. Listar eventos disponibles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Cada evento trae nombre, fecha y precio', () => {",
+                  "  pm.response.json().forEach(e => pm.expect(e).to.include.keys('nombre', 'fecha', 'precioEntrada'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/eventos" }
         },
-        "url": "{{baseUrl}}/api/compras"
-      }
-    },
-    {
-      "name": "4. Consultar resumen de compra",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": ["pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"]
+          "name": "3. Comprar entradas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test('El total es precio unitario x cantidad', () => pm.expect(r.precioTotal).to.eql(r.precioUnitario * r.cantidadEntradas));",
+                  "pm.collectionVariables.set('numeroResumen', r.numeroResumen);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": {{eventoId}},\n  \"cantidadEntradas\": 3\n}"
+            },
+            "url": "{{baseUrl}}/api/compras"
           }
-        }
-      ],
-      "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}" }
-    },
-    {
-      "name": "5. Error: evento con datos inválidos",
-      "event": [
+        },
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": ["pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));"]
+          "name": "4. Consultar resumen de compra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}" }
+        },
+        {
+          "name": "5. Error: evento con datos inválidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"\",\n  \"fecha\": \"2020-01-01\",\n  \"precioEntrada\": -10\n}" },
+            "url": "{{baseUrl}}/api/eventos"
           }
+        },
+        {
+          "name": "6. Health check (despliegue)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" }
         }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"\",\n  \"fecha\": \"2020-01-01\",\n  \"precioEntrada\": -10\n}" },
-        "url": "{{baseUrl}}/api/eventos"
-      }
+      ]
     },
     {
-      "name": "6. Health check (despliegue)",
-      "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" }
+      "name": "Semana 2 - Resumen de compra en S3",
+      "description": "Usa el numeroResumen de la última compra (petición 'Comprar entradas'). Para guardar los PDF en tu computador usa 'Send and Download'.",
+      "item": [
+        {
+          "name": "1. Generar resumen en PDF (archivo físico)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Es un PDF', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/pdf" }
+        },
+        {
+          "name": "2. Subir resumen a S3 (carpeta = número de resumen)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test('Se guarda en la carpeta del resumen', () => pm.expect(r.clave).to.eql(`${r.numeroResumen}/resumen-compra-${r.numeroResumen}.pdf`));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3" }
+        },
+        {
+          "name": "3. Ver archivo en S3 (info)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3/info" }
+        },
+        {
+          "name": "4. Listar carpeta del resumen en S3",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3/carpeta" }
+        },
+        {
+          "name": "5. Modificar archivo en S3 (regenerar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": { "method": "PUT", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3" }
+        },
+        {
+          "name": "6. Modificar archivo en S3 (subir PDF corregido)",
+          "request": {
+            "method": "PUT",
+            "description": "En Body > form-data, selecciona en el campo 'archivo' el PDF corregido desde tu computador.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "archivo", "type": "file", "src": [] }]
+            },
+            "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3"
+          }
+        },
+        {
+          "name": "7. Descargar archivo desde S3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Es un PDF', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3" }
+        },
+        {
+          "name": "8. Borrar archivo de S3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3" }
+        },
+        {
+          "name": "9. Error: borrar un archivo que ya no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 404 Not Found', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/compras/{{numeroResumen}}/resumen/s3" }
+        }
+      ]
     }
   ]
 }
