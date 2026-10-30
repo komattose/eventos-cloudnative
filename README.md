@@ -110,4 +110,4 @@ Cada push a `main` ejecuta tres etapas:
 
 ## Pruebas con Postman
 
-Importa `postman/Eventos.postman_collection.json`. Para probar el despliegue, cambia la variable `baseUrl` por `http://<IP_EC2>:8080`. Las peticiones guardan el `eventoId` y el `numeroResumen` automáticamente y validan las respuestas.
+Importa `postman/Eventos.postman_collection.json` y los entornos `postman/EC2.postman_environment.json` (API desplegada en `http://3.215.75.56:8080`) y `postman/Local.postman_environment.json`. Selecciona el entorno arriba a la derecha y ejecuta la colección con **Run collection**. Las peticiones guardan el `eventoId` y el `numeroResumen` automáticamente y validan las respuestas.
