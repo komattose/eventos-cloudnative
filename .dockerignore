@@ -7,3 +7,4 @@ wallet/
 *.iml
 postman/
 docs/
+efs-data/

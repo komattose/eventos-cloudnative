@@ -13,3 +13,6 @@ Wallet_*/
 *.iml
 .vscode/
 .DS_Store
+
+# Tickets generados en local (en la EC2 van al EFS)
+efs-data/

@@ -1,7 +1,48 @@
 # Eventos – Desarrollo Cloud Native (CDY2204)
 
 Microservicio Spring Boot para el registro y la venta de entradas de una empresa de eventos.
-Experiencia 1 – Semana 1: *Desplegando aplicaciones en la nube* y Semana 2: *Almacenando archivos en la nube*. Grupo 20.
+Experiencia 1 – Semana 1: *Desplegando aplicaciones en la nube*, Semana 2: *Almacenando archivos en la nube* y Semana 3 (Sumativa 1): *Construyendo y desplegando una solución Cloud Native*. Grupo 20.
+
+## Semana 3 – Sistema de Gestión de Reservas de Eventos con Tickets (EFS + S3)
+
+| Requerimiento | Implementación |
+|---|---|
+| EFS para almacenamiento temporal: los tickets personalizados se generan y guardan en el EFS del microservicio | `EfsRepository` escribe en `EFS_PATH` (`/app/efs` en el contenedor = `/mnt/efs/tickets` en la EC2, donde está montado el EFS) |
+| Subida automática a S3 por evento y usuario (`/evento123/usuarioX/ticket001.pdf`) | Al generar, cada ticket se sube a `evento{eventoId}/{usuario}/ticket{id}.pdf` |
+| Generar tickets | `POST /api/tickets` (reserva + un ticket por entrada) |
+| Subir tickets a S3 | `POST /api/tickets/{id}/s3` (uno) y `POST /api/tickets/s3?eventoId=&usuario=` (pendientes) |
+| Descargar tickets por usuario o evento | `GET /api/tickets/{id}/descargar` (PDF) y `GET /api/tickets/descargar?eventoId=&usuario=` (ZIP) |
+| Modificar detalles del ticket | `PUT /api/tickets/{id}` (regenera el PDF en EFS y actualiza el archivo en S3) |
+| Eliminar tickets específicos | `DELETE /api/tickets/{id}` (borra de S3 y del EFS; el ticket queda `ELIMINADO`) |
+| Estadísticas de ventas y reservas por evento | `GET /api/estadisticas/eventos/{eventoId}` y `GET /api/estadisticas` |
+| Historial de archivos generados (pauta) | `GET /api/tickets/historial?eventoId=&usuario=&ticketId=&accion=&desde=&hasta=` |
+| Imagen en Docker Hub y despliegue en EC2 con GitHub Actions al hacer push a `main` | `.github/workflows/ci-cd.yml` (monta el EFS en el contenedor) |
+
+Apoyo: `GET /api/tickets?eventoId=&usuario=&estado=` (listar), `GET /api/tickets/{id}` y `GET /api/tickets/archivos-s3?eventoId=&usuario=` (objetos reales del bucket).
+
+Flujo de un ticket: `GENERADO` (PDF en EFS) → `SUBIDO` (también en S3) → `ELIMINADO`. Si S3 no responde al generar, el ticket queda `GENERADO` en el EFS y se sube después con `POST /api/tickets/s3`. Cada operación (generado en EFS, subido a S3, modificado, descargado, eliminado) se registra en la tabla `HISTORIAL_ARCHIVOS`.
+
+Ejemplo:
+
+```json
+POST /api/tickets
+{ "eventoId": 4, "usuario": "martin", "cantidad": 2, "nombreAsistente": "Martin Belaunde", "zona": "vip" }
+```
+
+### Montar el EFS en la EC2 (una sola vez)
+
+1. AWS → EFS → *Create file system* en la VPC por defecto.
+2. En *Network* → *Manage*, asignar a cada zona el security group de la EC2, y en ese security group permitir **NFS (2049)** desde el mismo grupo.
+3. En la EC2:
+
+```bash
+sudo mkdir -p /mnt/efs
+sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport <fs-id>.efs.us-east-1.amazonaws.com:/ /mnt/efs
+echo "<fs-id>.efs.us-east-1.amazonaws.com:/ /mnt/efs nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" | sudo tee -a /etc/fstab
+df -h /mnt/efs
+```
+
+El pipeline crea `/mnt/efs/tickets` y lo monta en el contenedor (`-v /mnt/efs/tickets:/app/efs`). Para ver los tickets en el EFS: `ls -R /mnt/efs/tickets`.
 
 ## Requerimientos de la semana 2 (AWS S3)
 
@@ -42,6 +83,19 @@ Variables de entorno: `S3_BUCKET`, `AWS_REGION` (por defecto `us-east-1`) y las 
 | PUT | `/api/compras/{n}/resumen/s3` | Modifica el archivo en S3 |
 | GET | `/api/compras/{n}/resumen/s3` | Descarga el archivo desde S3 |
 | DELETE | `/api/compras/{n}/resumen/s3` | Borra el archivo de S3 |
+| POST | `/api/tickets` | Reserva y genera tickets (EFS + S3) |
+| GET | `/api/tickets` | Lista tickets (filtros `eventoId`, `usuario`, `estado`) |
+| GET | `/api/tickets/{id}` | Detalle de un ticket |
+| POST | `/api/tickets/{id}/s3` | Sube un ticket a S3 desde el EFS |
+| POST | `/api/tickets/s3` | Sube los tickets pendientes (por evento/usuario) |
+| GET | `/api/tickets/{id}/descargar` | Descarga el PDF desde S3 |
+| GET | `/api/tickets/descargar` | ZIP con los tickets de un evento y/o usuario |
+| PUT | `/api/tickets/{id}` | Modifica nombre del asistente y/o zona |
+| DELETE | `/api/tickets/{id}` | Elimina un ticket (S3 y EFS) |
+| GET | `/api/tickets/historial` | Historial de archivos con filtros |
+| GET | `/api/tickets/archivos-s3` | Objetos del bucket por evento/usuario |
+| GET | `/api/estadisticas` | Estadísticas de todos los eventos |
+| GET | `/api/estadisticas/eventos/{id}` | Estadísticas de ventas y reservas de un evento |
 | GET | `/actuator/health` | Estado de la aplicación |
 
 Ejemplo de compra:

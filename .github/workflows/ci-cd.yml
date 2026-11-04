@@ -91,9 +91,19 @@ jobs:
                 echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN"
               fi
             } > "$ENV_FILE"
+            # Amazon EFS montado en /mnt/efs (ver README). Los tickets se generan en /mnt/efs/tickets
+            EFS_DIR=/mnt/efs/tickets
+            if mountpoint -q /mnt/efs; then
+              echo "EFS montado en /mnt/efs"
+            else
+              echo "ADVERTENCIA: /mnt/efs no es un EFS montado; los tickets quedarán en el disco de la instancia"
+            fi
+            sudo mkdir -p "$EFS_DIR"
+            sudo chown 1001:1001 "$EFS_DIR"
             # La wallet de Oracle Cloud debe estar descomprimida en ~/wallet dentro de la EC2
             docker run -d --name "$CONTAINER" --restart unless-stopped -p 8080:8080 \
               -v "$HOME/wallet:/app/wallet:ro" \
+              -v "$EFS_DIR:/app/efs" \
               --env-file "$ENV_FILE" \
               "$IMAGE"
             docker image prune -f

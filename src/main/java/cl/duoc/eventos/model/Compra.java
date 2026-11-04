@@ -41,11 +41,20 @@ public class Compra {
     @Column(name = "FECHA_COMPRA", nullable = false)
     private LocalDateTime fechaCompra;
 
+    /** Usuario que hizo la reserva (semana 3). Las compras de las semanas anteriores no lo tienen. */
+    @Column(length = 50)
+    private String usuario;
+
     protected Compra() {
     }
 
     public Compra(Evento evento, int cantidadEntradas) {
+        this(evento, cantidadEntradas, null);
+    }
+
+    public Compra(Evento evento, int cantidadEntradas, String usuario) {
         this.evento = evento;
+        this.usuario = usuario;
         this.cantidadEntradas = cantidadEntradas;
         // El precio unitario se congela al momento de la compra
         this.precioUnitario = evento.getPrecioEntrada();
@@ -75,5 +84,9 @@ public class Compra {
 
     public LocalDateTime getFechaCompra() {
         return fechaCompra;
+    }
+
+    public String getUsuario() {
+        return usuario;
     }
 }

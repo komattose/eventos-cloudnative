@@ -24,12 +24,18 @@ public class CompraService {
 
     @Transactional
     public ResumenCompra comprar(CompraRequest request) {
-        Evento evento = eventoService.buscar(request.eventoId());
+        return ResumenCompra.from(registrar(request.eventoId(), request.cantidadEntradas(), null));
+    }
+
+    /**
+     * Registra una compra/reserva validando que el evento aún no ocurra.
+     */
+    Compra registrar(Long eventoId, int cantidadEntradas, String usuario) {
+        Evento evento = eventoService.buscar(eventoId);
         if (evento.getFecha().isBefore(LocalDate.now())) {
             throw new IllegalStateException("El evento \"" + evento.getNombre() + "\" ya ocurrió y no tiene entradas a la venta");
         }
-        Compra compra = compraRepository.save(new Compra(evento, request.cantidadEntradas()));
-        return ResumenCompra.from(compra);
+        return compraRepository.save(new Compra(evento, cantidadEntradas, usuario));
     }
 
     @Transactional(readOnly = true)
